@@ -1,0 +1,561 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { FiChevronLeft, FiChevronRight, FiMenu, FiSettings, FiX } from 'react-icons/fi';
+import { FaHighlighter, FaComment } from 'react-icons/fa';
+import ePub from 'epubjs';
+import Settings from './Settings';
+import './EpubReader.css';
+import { debounce } from 'lodash';
+
+const getContrastColor = (hexcolor) => {
+  const hex = hexcolor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? '#000000' : '#ffffff';
+};
+
+const EpubReader = ({ file }) => {
+  const [book, setBook] = useState(null);
+  const [rendition, setRendition] = useState(null);
+  const [currentLocation, setCurrentLocation] = useState(0);
+  const [totalLocations, setTotalLocations] = useState(0);
+  const viewerRef = useRef(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState({
+    fontFamily: 'inherit',
+    fontSize: 100,
+    bgColor: '#ffffff'
+  });
+  const [highlights, setHighlights] = useState([]);
+  const [selectionPopup, setSelectionPopup] = useState({ show: false, x: 0, y: 0 });
+  const [selectedRange, setSelectedRange] = useState(null);
+  const [showCommentInput, setShowCommentInput] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState([]);
+  const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
+  const [showCommentsSidebar, setShowCommentsSidebar] = useState(false);
+
+  // Move this before the useEffect
+  const debouncedSetPopup = useCallback(
+    debounce((show, x, y) => {
+      setSelectionPopup({ show, x, y });
+    }, 100),
+    []
+  );
+
+  // Move setupIframe function outside of useEffect
+  const setupIframe = (iframe) => {
+    if (!iframe) return;
+    
+    // Remove existing sandbox attribute
+    iframe.removeAttribute('sandbox');
+    
+    // Add sandbox with required permissions
+    iframe.setAttribute(
+      'sandbox', 
+      'allow-same-origin allow-scripts allow-popups'
+    );
+  };
+
+  // First, remove these lines that are outside of any effect:
+  // document.addEventListener('mousedown', handleClickOutside);
+  // rendition.on('selected', (cfiRange, contents) => { ... });
+
+  // Then update the main initialization useEffect:
+  useEffect(() => {
+    if (!file || !viewerRef.current) return;
+
+    // Create new book instance
+    const book = ePub(file);
+    setBook(book);
+
+    // Create rendition
+    const rendition = book.renderTo(viewerRef.current, {
+      width: '100%',
+      height: '100%',
+      flow: 'paginated',
+      spread: 'none',
+      allowScriptedContent: true,
+      script: true,
+    });
+
+    // Display first page
+    rendition.display().then(() => {
+      // Setup initial iframe
+      const iframe = viewerRef.current?.querySelector('iframe');
+      if (iframe) {
+        setupIframe(iframe);
+      }
+
+      // Set up location change handler
+      rendition.on('locationChanged', (location) => {
+        const currentPage = book.locations.percentageFromCfi(location.start.cfi);
+        setCurrentLocation(currentPage || 0);
+      });
+
+      // Set up text selection handler
+      rendition.on('selected', (cfiRange, contents) => {
+        const selection = contents.window.getSelection();
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+
+        const position = {
+          x: rect.left + (rect.width / 2),
+          y: rect.bottom + 10
+        };
+
+        // Create selection info first
+        const selectionInfo = {
+          cfiRange,
+          contents,
+          text: selection.toString(),
+          range
+        };
+
+        // Set states in order
+        setSelectedRange(selectionInfo);
+        setPopupPosition(position);
+        debouncedSetPopup(true, position.x, position.y);
+      });
+
+      // Handle highlight clicks
+      rendition.on('markClicked', (cfiRange) => {
+        rendition.annotations.remove(cfiRange, 'highlight');
+        setHighlights(prev => prev.filter(h => h.cfiRange !== cfiRange));
+      });
+    });
+
+    setRendition(rendition);
+
+    // Add click outside handler
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.selection-popup') && !e.target.closest('.comment-input-popup')) {
+        setSelectionPopup({ show: false, x: 0, y: 0 });
+        setSelectedRange(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      if (book) {
+        book.destroy();
+      }
+    };
+  }, [file, debouncedSetPopup]);
+
+  // Separate useEffect for iframe handling
+  useEffect(() => {
+    if (!rendition) return;
+
+    // Handle new iframes created during navigation
+    rendition.hooks.content.register(contents => {
+      const iframe = contents.document.defaultView.frameElement;
+      if (iframe) {
+        setupIframe(iframe);
+      }
+    });
+
+    // Handle iframe creation
+    rendition.on('rendered', (section, view) => {
+      const iframe = viewerRef.current?.querySelector('iframe');
+      if (iframe) {
+        setupIframe(iframe);
+      }
+    });
+  }, [rendition]);
+
+  useEffect(() => {
+    if (!rendition) return;
+
+    // Apply font size as a percentage scale
+    rendition.themes.fontSize(`${settings.fontSize}%`);
+
+    // Apply other styles
+    rendition.themes.default({
+      body: {
+        'font-family': settings.fontFamily,
+        'background-color': settings.bgColor
+      }
+    });
+
+  }, [rendition, settings]);
+
+  useEffect(() => {
+    if (rendition && highlights.length > 0) {
+      try {
+        localStorage.setItem('epub-highlights', JSON.stringify(highlights));
+      } catch (error) {
+        console.error('Error saving highlights:', error);
+      }
+    }
+  }, [highlights, rendition]);
+
+  useEffect(() => {
+    if (rendition) {
+      try {
+        const savedHighlights = localStorage.getItem('epub-highlights');
+        if (savedHighlights) {
+          const hl = JSON.parse(savedHighlights);
+          setHighlights(hl);
+          
+          hl.forEach(highlight => {
+            rendition.annotations.add(
+              'highlight', 
+              highlight.cfiRange, 
+              {}, 
+              null, 
+              'hl', 
+              { 
+                fill: highlight.color, 
+                'fill-opacity': highlight.opacity,
+                'mix-blend-mode': 'multiply'
+              }
+            );
+          });
+        }
+      } catch (error) {
+        console.error('Error loading highlights:', error);
+      }
+    }
+  }, [rendition]);
+
+  // Simplified navigation handlers
+  const handlePrevPage = () => rendition?.prev();
+  const handleNextPage = () => rendition?.next();
+
+  // Add keyboard navigation
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (!rendition) return;
+      
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        rendition.prev();
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        rendition.next();
+      }
+    };
+
+    document.addEventListener('keyup', handleKeyPress);
+    return () => document.removeEventListener('keyup', handleKeyPress);
+  }, [rendition]);
+
+  const handleSettingsChange = (newSettings) => {
+    // Convert fontSize to number if it's coming as a string
+    const fontSize = typeof newSettings.fontSize === 'string' 
+      ? parseInt(newSettings.fontSize, 10)
+      : newSettings.fontSize;
+
+    setSettings({
+      ...newSettings,
+      fontSize: fontSize
+    });
+  };
+
+  // Add these handler functions
+  const handleHighlight = () => {
+    if (!selectedRange) return;
+
+    rendition.annotations.add(
+      'highlight',
+      selectedRange.cfiRange,
+      {},
+      null,
+      'hl',
+      {
+        fill: '#ffeb3b',
+        'fill-opacity': 0.3
+      }
+    );
+
+    setHighlights(prev => [...prev, {
+      cfiRange: selectedRange.cfiRange,
+      color: '#ffeb3b',
+      opacity: 0.3
+    }]);
+
+    setSelectionPopup({ show: false, x: 0, y: 0 });
+    setSelectedRange(null);
+  };
+
+  const handleComment = () => {
+    // Don't try to store and restore selection, just switch UI state
+    setShowCommentInput(true);
+    setSelectionPopup({ show: false, x: 0, y: 0 });
+  };
+
+  const closeCommentPopup = () => {
+    if (selectedRange?.contents?.window) {
+      selectedRange.contents.window.getSelection().removeAllRanges();
+    }
+    
+    setShowCommentInput(false);
+    setCommentText('');
+    setSelectedRange(null);
+    setSelectionPopup({ show: false, x: 0, y: 0 });
+  };
+
+  const handleSaveComment = () => {
+    if (!selectedRange || !commentText.trim()) {
+      closeCommentPopup();
+      return;
+    }
+
+    const newComment = {
+      id: Date.now(),
+      cfiRange: selectedRange.cfiRange,
+      text: commentText,
+      content: selectedRange.text,
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      // Update comments
+      const updatedComments = [...comments, newComment];
+      setComments(updatedComments);
+      localStorage.setItem('epub-comments', JSON.stringify(updatedComments));
+
+      // Clear everything
+      if (selectedRange?.contents?.window) {
+        selectedRange.contents.window.getSelection().removeAllRanges();
+      }
+      
+      setShowCommentInput(false);
+      setCommentText('');
+      setSelectedRange(null);
+      setSelectionPopup({ show: false, x: 0, y: 0 });
+
+      // Open hamburger menu
+      setShowCommentsSidebar(true);
+    } catch (error) {
+      console.error('Error saving comment:', error);
+    }
+  };
+
+  // Add this useEffect for loading comments
+  useEffect(() => {
+    if (rendition) {
+      try {
+        const savedComments = localStorage.getItem('epub-comments');
+        if (savedComments) {
+          const parsedComments = JSON.parse(savedComments);
+          setComments(parsedComments);
+          
+          // Reapply comment markers
+          parsedComments.forEach(comment => {
+            rendition.annotations.add(
+              'highlight',
+              comment.cfiRange,
+              { comment: comment.text },
+              null,
+              'comment',
+              {
+                'border-bottom': '2px dotted #ffd54f',
+                'background-color': 'rgba(255, 213, 79, 0.2)'
+              }
+            );
+          });
+        }
+      } catch (error) {
+        console.error('Error loading comments:', error);
+      }
+    }
+  }, [rendition]);
+
+  // Add this to your useEffect where you handle rendition initialization
+  useEffect(() => {
+    if (!rendition) return;
+
+    rendition.hooks.content.register(contents => {
+      contents.addStylesheetRules({
+        'mark[data-epubjs-annotation="bold"]': {
+          'font-weight': '700 !important',
+          'background-color': 'transparent'
+        }
+      });
+    });
+  }, [rendition]);
+
+  // Add this to save font settings
+  useEffect(() => {
+    if (settings) {
+      try {
+        localStorage.setItem('epub-settings', JSON.stringify(settings));
+      } catch (error) {
+        console.error('Error saving settings:', error);
+      }
+    }
+  }, [settings]);
+
+  // Load saved settings on init
+  useEffect(() => {
+    try {
+      const savedSettings = localStorage.getItem('epub-settings');
+      if (savedSettings) {
+        setSettings(JSON.parse(savedSettings));
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  }, []);
+
+  return (
+    <div className="reader-container" style={{ backgroundColor: settings.bgColor }}>
+      <div className="top-bar" style={{ 
+        backgroundColor: settings.bgColor,
+        color: getContrastColor(settings.bgColor)
+      }}>
+        <div className="left-controls">
+          <button 
+            className="button" 
+            onClick={() => setShowCommentsSidebar(true)}
+            style={{ color: getContrastColor(settings.bgColor) }}
+          >
+            <FiMenu />
+          </button>
+          <button
+            className="button"
+            title="Highlight text by selecting it"
+            style={{ color: getContrastColor(settings.bgColor) }}
+          >
+            <FaHighlighter />
+          </button>
+        </div>
+        <div className="page-info" style={{ color: getContrastColor(settings.bgColor) }}>
+          {currentLocation ? `${Math.floor(currentLocation * 100)}%` : '0%'}
+        </div>
+        <button className="button" 
+          onClick={() => setIsSettingsOpen(true)}
+          style={{ color: getContrastColor(settings.bgColor) }}
+        >
+          <FiSettings />
+        </button>
+      </div>
+      
+      <div className="reader-content" style={{ backgroundColor: settings.bgColor }}>
+        <div className="viewer-wrapper" style={{ backgroundColor: settings.bgColor }}>
+          <div ref={viewerRef} className="viewer" />
+        </div>
+        
+        <div className="navigation-buttons">
+          <button 
+            className="nav-button" 
+            onClick={handlePrevPage}
+            style={{ color: getContrastColor(settings.bgColor) }}
+          >
+            <FiChevronLeft />
+          </button>
+          <button 
+            className="nav-button" 
+            onClick={handleNextPage}
+            style={{ color: getContrastColor(settings.bgColor) }}
+          >
+            <FiChevronRight />
+          </button>
+        </div>
+      </div>
+      
+      {showCommentsSidebar && (
+        <div className="comments-sidebar">
+          <div className="comments-header">
+            <h3>Comments</h3>
+            <button 
+              className="close-button"
+              onClick={() => setShowCommentsSidebar(false)}
+            >
+              <FiX />
+            </button>
+          </div>
+          {comments.length === 0 ? (
+            <p className="no-comments">No comments yet</p>
+          ) : (
+            <div className="comments-list">
+              {comments.map(comment => (
+                <div key={comment.id} className="comment-item">
+                  <div className="comment-content">
+                    <p className="selected-text">"{comment.content}"</p>
+                    <p className="comment-text">{comment.text}</p>
+                    <p className="comment-timestamp">
+                      {new Date(comment.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                  <button
+                    className="delete-comment"
+                    onClick={() => {
+                      const updatedComments = comments.filter(c => c.id !== comment.id);
+                      setComments(updatedComments);
+                      localStorage.setItem('epub-comments', JSON.stringify(updatedComments));
+                    }}
+                  >
+                    <FiX />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <Settings
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        onSettingsChange={handleSettingsChange}
+      />
+
+      {selectionPopup.show && (
+        <div
+          className="selection-popup"
+          style={{
+            position: 'fixed',
+            left: `${selectionPopup.x}px`,
+            top: `${selectionPopup.y}px`,
+            transform: 'translate(-50%, 0)'
+          }}
+        >
+          <button onClick={handleHighlight} className="popup-button" title="Highlight">
+            <FaHighlighter />
+          </button>
+          <button onClick={handleComment} className="popup-button" title="Comment">
+            <FaComment />
+          </button>
+        </div>
+      )}
+
+      {showCommentInput && (
+        <div
+          className="comment-input-popup"
+          style={{
+            position: 'fixed',
+            left: `${popupPosition.x}px`,
+            top: `${popupPosition.y}px`,
+            transform: 'translate(-50%, 0)',
+            zIndex: 1000
+          }}
+        >
+          <textarea
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            placeholder="Enter your comment..."
+            autoFocus
+          />
+          <div className="comment-buttons">
+            <button onClick={closeCommentPopup}>
+              Cancel
+            </button>
+            <button onClick={handleSaveComment}>
+              Save
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default EpubReader; 

@@ -1,0 +1,796 @@
+.reader-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  transition: background-color 0.3s ease;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  transition: background-color 0.3s ease;
+}
+
+.reader-content {
+  flex: 1;
+  position: relative;
+  overflow: visible;
+  margin: 1rem;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+  box-shadow: inset -2px 0 5px rgba(0, 0, 0, 0.05);
+}
+
+.viewer-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: flex-end;
+  transition: background-color 0.3s ease;
+  position: relative;
+  z-index: 1;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.viewer {
+  width: 50%;
+  height: 100%;
+  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
+  background-color: inherit;
+  padding: 2rem 0; /* Add vertical padding to the viewer */
+}
+
+/* Update iframe styles */
+.viewer iframe {
+  height: 100% !important;
+  margin-left: auto !important;
+  margin-right: 0 !important;
+  background-color: inherit;
+  border: none;
+}
+
+/* Update navigation buttons to be more visible on any background */
+.nav-button {
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.nav-button:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(1.1);
+}
+
+.nav-button svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Make text elements readable on any background */
+.page-info {
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.button {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 4px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  transition: all 0.2s;
+}
+
+.button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+/* Mobile optimization */
+@media (max-width: 768px) {
+  .viewer {
+    width: 100%; /* Full width on mobile */
+  }
+
+  .navigation-buttons {
+    width: 100%; /* Full width on mobile */
+  }
+
+  .reader-content {
+    margin: 0.5rem;
+  }
+}
+
+/* Ensure the EPUB content is properly contained */
+#viewer {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* Add back the navigation buttons container */
+.navigation-buttons {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.highlight-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.highlight-icon {
+  font-size: 1.2rem;
+}
+
+.button.active {
+  background: rgba(255, 235, 59, 0.3);
+  transform: scale(1.1);
+}
+
+.color-picker {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.color-picker:hover {
+  transform: scale(1.1);
+}
+
+/* Adjust the reader content margin to accommodate the sidebar */
+.reader-content {
+  margin-left: calc(300px + 1rem);
+  transition: margin-left 0.3s ease;
+}
+
+.reader-content.no-sidebar {
+  margin-left: 1rem;
+}
+
+.viewer-wrapper.highlight-mode {
+  cursor: text !important;
+}
+
+.viewer-wrapper.highlight-mode::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  border: 2px solid rgba(255, 235, 59, 0.5);
+  border-radius: 8px;
+}
+
+/* Update highlight styles */
+.highlight-span {
+  background-color: transparent;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+/* Remove the animation to prevent style conflicts */
+[data-highlight-id] {
+  background-color: inherit;
+  mix-blend-mode: multiply;
+}
+
+.text-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bold-icon {
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.comment-icon {
+  font-size: 1.2rem;
+}
+
+.bold-span {
+  transition: all 0.2s ease;
+}
+
+.comment-span {
+  border-bottom: 2px dotted #ffd54f;
+  transition: all 0.2s ease;
+}
+
+.comment-span:hover {
+  background-color: #fff59d !important;
+}
+
+/* Update the button active states */
+.button.active {
+  background: rgba(255, 235, 59, 0.3);
+  transform: scale(1.1);
+}
+
+.button.active[data-action="bold"] {
+  background: rgba(33, 150, 243, 0.3);
+}
+
+.button.active[data-action="comment"] {
+  background: rgba(255, 193, 7, 0.3);
+}
+
+/* Add highlight controls styles */
+.highlight-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.highlight-icon {
+  font-size: 1.2rem;
+}
+
+.button.active {
+  background: rgba(255, 235, 59, 0.3);
+  transform: scale(1.1);
+}
+
+.color-picker {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid white;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.color-picker:hover {
+  transform: scale(1.1);
+}
+
+/* Style for highlighted text */
+[data-highlight-id] {
+  border-radius: 2px;
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+}
+
+[data-highlight-id]:hover {
+  opacity: 0.5 !important;
+}
+
+.viewer-wrapper.highlight-mode {
+  cursor: text;
+}
+
+/* Add highlight menu styles */
+.highlight-menu {
+  position: fixed;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 9999;
+  transform: translate(-50%, -100%);
+}
+
+.highlight-button,
+.comment-button {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.highlight-button svg,
+.comment-button svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Style for highlighted text */
+[data-highlight-id] {
+  background-color: #ffeb3b;
+  opacity: 0.3;
+  border-radius: 2px;
+  transition: opacity 0.2s ease;
+}
+
+[data-highlight-id]:hover {
+  opacity: 0.5;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* Comment-related styles */
+.comment-tool-button {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.comment-tool-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+.comment-tool-button.active {
+  background: rgba(255, 193, 7, 0.3);
+  transform: scale(1.1);
+}
+
+/* Style for commented text in the reader */
+.commented-text {
+  background-color: rgba(255, 193, 7, 0.2);
+  border-bottom: 2px dotted #ffd54f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.commented-text:hover {
+  background-color: rgba(255, 193, 7, 0.3);
+}
+
+/* Comment sidebar styles */
+.comments-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 300px;
+  background: white;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.comments-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #eee;
+}
+
+.comment-item {
+  background: #f9f9f9;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.selected-text {
+  font-style: italic;
+  color: #666;
+  background: white;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border-left: 3px solid #ffd54f;
+  margin-bottom: 0.5rem;
+}
+
+.comment-text {
+  color: #333;
+  margin: 0.5rem 0;
+}
+
+.comment-timestamp {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.delete-comment {
+  position: absolute;
+  right: 0.5rem;
+  top: 0.5rem;
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  cursor: pointer;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+  padding: 0.25rem;
+}
+
+.delete-comment:hover {
+  opacity: 1;
+}
+
+/* Comment input popup */
+.comment-popup {
+  position: fixed;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  padding: 1rem;
+  z-index: 2000;
+  min-width: 300px;
+}
+
+.comment-input {
+  width: 100%;
+  min-height: 100px;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  resize: vertical;
+}
+
+.comment-popup-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.comment-popup-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.comment-save-button {
+  background-color: #4caf50;
+  color: white;
+}
+
+.comment-cancel-button {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.comment-popup-button:hover {
+  transform: scale(1.05);
+}
+
+/* Remove highlight-related styles that we won't need */
+.highlight-controls,
+.highlight-icon,
+.color-picker,
+/* .highlight-span, */
+/* [data-highlight-id], */
+.viewer-wrapper.highlight-mode,
+.viewer-wrapper.highlight-mode::after {
+  display: none;
+}
+
+.left-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.left-controls .button {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 1rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  color: #666;
+  transition: color 0.2s ease;
+}
+
+.close-button:hover {
+  color: #333;
+}
+
+.no-comments {
+  text-align: center;
+  color: #666;
+  font-style: italic;
+  padding: 2rem;
+}
+
+.highlight-menu {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.highlight-button,
+.comment-button {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.highlight-button:hover,
+.comment-button:hover {
+  background-color: #f0f0f0;
+}
+
+.selection-menu {
+  position: fixed;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem;
+  transform: translate(-50%, -100%);
+  z-index: 9999;
+  display: flex;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+
+.selection-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: none;
+  border: none;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.selection-button:hover {
+  background-color: #f0f0f0;
+}
+
+.commented-text {
+  background-color: rgba(255, 193, 7, 0.2);
+  border-bottom: 2px dotted #ffd54f;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.commented-text:hover {
+  background-color: rgba(255, 193, 7, 0.3);
+}
+
+.viewer-wrapper.comment-mode {
+  cursor: text;
+}
+
+.viewer-wrapper.highlight-mode {
+  cursor: text;
+}
+
+.button.active {
+  background: rgba(255, 193, 7, 0.3);
+  transform: scale(1.1);
+}
+
+/* Update the left controls to better accommodate the new buttons */
+.left-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.left-controls .button {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 1rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.highlight-text {
+  background-color: #ffeb3b;
+  opacity: 0.3;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.highlight-text:hover {
+  opacity: 0.5;
+}
+
+.viewer-wrapper.comment-mode {
+  cursor: text;
+}
+
+.viewer-wrapper.highlight-mode {
+  cursor: text;
+}
+
+/* Update button styles */
+.button.active {
+  background: rgba(255, 193, 7, 0.3);
+  transform: scale(1.1);
+}
+
+.left-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.left-controls .button {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 1rem;
+  padding: 0.5rem 0.75rem;
+}
+
+/* Style for highlights */
+.epub-container [data-epubjs-annotation="highlight"] {
+  background-color: #ffeb3b;
+  opacity: 0.3;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.epub-container [data-epubjs-annotation="highlight"]:hover {
+  opacity: 0.5;
+}
+
+.selection-popup {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 1000;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.popup-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-size: 1.2rem;
+}
+
+.popup-button:hover {
+  background-color: #f0f0f0;
+}
+
+.comment-input-popup {
+  position: absolute;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 1rem;
+  z-index: 1000;
+  min-width: 250px;
+  max-width: 400px;
+}
+
+.comment-input-popup textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+  resize: vertical;
+  font-size: 14px;
+}
+
+.comment-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.comment-buttons button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.comment-buttons button:first-child {
+  background-color: #f0f0f0;
+}
+
+.comment-buttons button:last-child {
+  background-color: #4caf50;
+  color: white;
+}
+
+.comment-buttons button:hover {
+  transform: scale(1.05);
+}
+
+/* Performance optimizations */
+.reader-container * {
+  backface-visibility: hidden;
+}
+
+/* Update annotation styles */
+.epub-container mark[data-epubjs-annotation="bold"] {
+  background-color: transparent;
+  font-weight: 700 !important;
+}
+
+.epub-container mark[data-epubjs-annotation="comment"] {
+  background-color: rgba(255, 213, 79, 0.2);
+  border-bottom: 2px dotted #ffd54f;
+  cursor: pointer;
+}
+
+.epub-container mark[data-epubjs-annotation="comment"]:hover {
+  background-color: rgba(255, 213, 79, 0.3);
+} 

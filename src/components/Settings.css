@@ -1,0 +1,227 @@
+.settings-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  background-color: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  box-shadow: -2px 0 15px rgba(0, 0, 0, 0.1);
+  z-index: 2000;
+  animation: slideIn 0.3s ease-out;
+}
+
+.settings-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #333;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #666;
+  padding: 0.5rem;
+}
+
+.setting-group {
+  margin-bottom: 2rem;
+}
+
+/* Theme circles */
+.theme-circles {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 2rem;
+}
+
+.theme-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.theme-circle.active {
+  border-color: #007AFF;
+}
+
+.checkmark {
+  color: #007AFF;
+  font-size: 1.2rem;
+}
+
+/* Font size controls */
+.font-size {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1rem;
+}
+
+.size-button {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: #333;
+  padding: 0.5rem;
+}
+
+.size-button.large {
+  font-size: 1.5rem;
+}
+
+.size-slider {
+  flex: 1;
+  height: 2px;
+  background-color: #ddd;
+  position: relative;
+}
+
+.size-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background-color: #ddd;
+}
+
+.size-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background-color: #007AFF;
+}
+
+/* Font list */
+.fonts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 2rem;
+}
+
+.font-button {
+  background: none;
+  border: none;
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 1.1rem;
+  cursor: pointer;
+  border-radius: 8px;
+  color: #333;
+}
+
+.font-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.font-button.active {
+  background-color: rgba(0, 122, 255, 0.1);
+  color: #007AFF;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Update font selection styles */
+.font-label {
+  display: block;
+  margin-bottom: 0.75rem;
+  color: #666;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.font-select-wrapper {
+  position: relative;
+}
+
+.font-select-wrapper::after {
+  content: '▼';
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #007AFF;
+  pointer-events: none;
+  font-size: 0.8rem;
+}
+
+.font-select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background-color: white;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.font-select:hover {
+  border-color: #007AFF;
+}
+
+.font-select:focus {
+  outline: none;
+  border-color: #007AFF;
+  box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+}
+
+.font-select option {
+  padding: 0.5rem;
+  font-size: 1rem;
+}
+
+/* Font imports */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&family=Montserrat:wght@400;600&display=swap');
+
+/* OpenDyslexic font */
+@font-face {
+  font-family: 'OpenDyslexic';
+  src: url('https://cdn.jsdelivr.net/npm/opendyslexic@1.0.1/dist/regular.otf') format('opentype'),
+       url('https://cdn.jsdelivr.net/npm/opendyslexic@1.0.1/dist/bold.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* Luciole font */
+@font-face {
+  font-family: 'Luciole';
+  src: url('https://raw.githubusercontent.com/TypeTogether/Luciole/master/fonts/webfonts/Luciole-Regular.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+} 
