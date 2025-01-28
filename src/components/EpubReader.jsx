@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FiChevronLeft, FiChevronRight, FiMenu, FiSettings, FiX } from 'react-icons/fi';
-import { FaHighlighter, FaComment } from 'react-icons/fa';
+import { FaHighlighter, FaComment, FaBold, FaUnderline } from 'react-icons/fa';
 import ePub from 'epubjs';
 import Settings from './Settings';
 import './EpubReader.css';
@@ -32,7 +32,7 @@ const EpubReader = ({ file }) => {
   const [settings, setSettings] = useState({
     fontFamily: 'inherit',
     fontSize: 100,
-    bgColor: '#ffffff'
+    bgColor: '#F5E6D3'
   });
   const [highlights, setHighlights] = useState([]);
   const [selectionPopup, setSelectionPopup] = useState({ show: false, x: 0, y: 0 });
@@ -100,6 +100,8 @@ const EpubReader = ({ file }) => {
       spread: 'none',
       allowScriptedContent: true,
       script: true,
+      minSpreadWidth: 1000,
+      manager: 'continuous'
     });
 
     // Display first page
@@ -167,6 +169,29 @@ const EpubReader = ({ file }) => {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
+
+    // Add transition styles to the content
+    rendition.hooks.content.register(contents => {
+      contents.addStylesheetRules({
+        'body': {
+          'transition': 'transform 0.25s ease-out !important'
+        },
+        '.epub-container': {
+          'transition': 'opacity 0.25s ease-out !important'
+        },
+        'mark[data-epubjs-annotation="bold"]': {
+          'font-weight': '700 !important',
+          'background-color': 'transparent !important',
+          'mix-blend-mode': 'normal'
+        },
+        'mark[data-epubjs-annotation="underline"]': {
+          'text-decoration': 'underline !important',
+          'text-decoration-thickness': '1px',
+          'background-color': 'transparent !important',
+          'mix-blend-mode': 'normal'
+        }
+      });
+    });
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -277,9 +302,40 @@ const EpubReader = ({ file }) => {
     }
   }, [rendition]);
 
-  // Simplified navigation handlers
-  const handlePrevPage = () => rendition?.prev();
-  const handleNextPage = () => rendition?.next();
+  // Update the navigation handlers with slightly slower transitions
+  const handlePrevPage = () => {
+    if (!rendition) return;
+    
+    const iframe = viewerRef.current?.querySelector('iframe');
+    if (iframe) {
+      iframe.style.opacity = '0';
+      setTimeout(() => {
+        rendition.prev();
+        setTimeout(() => {
+          iframe.style.opacity = '1';
+        }, 40); // Increased from 30
+      }, 200); // Increased from 150
+    } else {
+      rendition.prev();
+    }
+  };
+
+  const handleNextPage = () => {
+    if (!rendition) return;
+    
+    const iframe = viewerRef.current?.querySelector('iframe');
+    if (iframe) {
+      iframe.style.opacity = '0';
+      setTimeout(() => {
+        rendition.next();
+        setTimeout(() => {
+          iframe.style.opacity = '1';
+        }, 40); // Increased from 30
+      }, 200); // Increased from 150
+    } else {
+      rendition.next();
+    }
+  };
 
   // Update the keyboard navigation useEffect
   useEffect(() => {
@@ -309,6 +365,22 @@ const EpubReader = ({ file }) => {
         e.preventDefault();
         if (selectedRange) {
           handleComment();
+        }
+      }
+
+      // Bold shortcut (Ctrl + B)
+      if (e.ctrlKey && e.key === 'b') {
+        e.preventDefault();
+        if (selectedRange) {
+          handleBold();
+        }
+      }
+
+      // Underline shortcut (Ctrl + U)
+      if (e.ctrlKey && e.key === 'u') {
+        e.preventDefault();
+        if (selectedRange) {
+          handleUnderline();
         }
       }
     };
@@ -452,7 +524,14 @@ const EpubReader = ({ file }) => {
       contents.addStylesheetRules({
         'mark[data-epubjs-annotation="bold"]': {
           'font-weight': '700 !important',
-          'background-color': 'transparent'
+          'background-color': 'transparent !important',
+          'mix-blend-mode': 'normal'
+        },
+        'mark[data-epubjs-annotation="underline"]': {
+          'text-decoration': 'underline !important',
+          'text-decoration-thickness': '1px',
+          'background-color': 'transparent !important',
+          'mix-blend-mode': 'normal'
         }
       });
     });
@@ -480,6 +559,48 @@ const EpubReader = ({ file }) => {
       console.error('Error loading settings:', error);
     }
   }, []);
+
+  // Add new handlers after handleComment
+  const handleBold = () => {
+    if (!selectedRange) return;
+
+    rendition.annotations.add(
+      'mark',
+      selectedRange.cfiRange,
+      {},
+      null,
+      'bold',
+      {
+        'font-weight': '700 !important',
+        'background-color': 'transparent',
+        'mix-blend-mode': 'normal'
+      }
+    );
+
+    setSelectionPopup({ show: false, x: 0, y: 0 });
+    setSelectedRange(null);
+  };
+
+  const handleUnderline = () => {
+    if (!selectedRange) return;
+
+    rendition.annotations.add(
+      'mark',
+      selectedRange.cfiRange,
+      {},
+      null,
+      'underline',
+      {
+        'text-decoration': 'underline !important',
+        'text-decoration-thickness': '1px',
+        'background-color': 'transparent',
+        'mix-blend-mode': 'normal'
+      }
+    );
+
+    setSelectionPopup({ show: false, x: 0, y: 0 });
+    setSelectedRange(null);
+  };
 
   return (
     <div className="reader-container" style={{ backgroundColor: settings.bgColor }}>
@@ -603,6 +724,20 @@ const EpubReader = ({ file }) => {
             transform: 'translate(-100%, 0)'
           }}
         >
+          <button 
+            onClick={handleBold} 
+            className="popup-button" 
+            title="Bold (Ctrl + B)"
+          >
+            <FaBold />
+          </button>
+          <button 
+            onClick={handleUnderline} 
+            className="popup-button" 
+            title="Underline (Ctrl + U)"
+          >
+            <FaUnderline />
+          </button>
           <button 
             onClick={handleHighlight} 
             className="popup-button" 

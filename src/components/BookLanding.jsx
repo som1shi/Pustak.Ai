@@ -16,7 +16,7 @@ const getContrastColor = (hexcolor) => {
   return luminance > 0.5 ? '#1a0f0a' : '#F5E6D3';
 };
 
-const BookLanding = ({ onFileSelect }) => {
+const BookLanding = ({ onStartReading }) => {
   const containerRef = useRef();
   const bookRef = useRef();
   const pagesRef = useRef();
@@ -212,13 +212,8 @@ const BookLanding = ({ onFileSelect }) => {
             borderColor: textColor,
             color: textColor
           }}
+          onClick={onStartReading}
         >
-          <input
-            type="file"
-            accept=".epub"
-            onChange={(e) => onFileSelect(e.target.files[0])}
-            style={{ display: 'none' }}
-          />
           <span>Open Book</span>
         </label>
       </div>
