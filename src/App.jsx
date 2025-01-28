@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
+import BookLanding from './components/BookLanding';
 import EpubReader from './components/EpubReader';
-import FileUpload from './components/FileUpload';
+import './App.css';
 
 function App() {
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [file, setFile] = useState(null);
 
   return (
-    <div>
-      {selectedFile ? (
-        <EpubReader file={selectedFile} />
+    <div className="app">
+      {!file ? (
+        <BookLanding onFileSelect={setFile} />
       ) : (
-        <FileUpload onFileSelect={setSelectedFile} />
+        <EpubReader file={file} />
       )}
     </div>
   );

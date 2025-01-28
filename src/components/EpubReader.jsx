@@ -7,12 +7,19 @@ import './EpubReader.css';
 import { debounce } from 'lodash';
 
 const getContrastColor = (hexcolor) => {
+  // If no color provided, return black
+  if (!hexcolor) return '#000000';
+  
   const hex = hexcolor.replace('#', '');
   const r = parseInt(hex.substr(0, 2), 16);
   const g = parseInt(hex.substr(2, 2), 16);
   const b = parseInt(hex.substr(4, 2), 16);
+  
+  // Calculate relative luminance
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? '#000000' : '#ffffff';
+  
+  // Return white for dark backgrounds, dark gray for light backgrounds
+  return luminance > 0.5 ? '#1a1a1a' : '#ffffff';
 };
 
 const EpubReader = ({ file }) => {
@@ -35,6 +42,7 @@ const EpubReader = ({ file }) => {
   const [comments, setComments] = useState([]);
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
   const [showCommentsSidebar, setShowCommentsSidebar] = useState(false);
+  const [isGeneratingLocations, setIsGeneratingLocations] = useState(false);
 
   // Move this before the useEffect
   const debouncedSetPopup = useCallback(
@@ -70,6 +78,20 @@ const EpubReader = ({ file }) => {
     const book = ePub(file);
     setBook(book);
 
+    // Generate locations for accurate progress tracking
+    book.ready.then(() => {
+      book.locations.generate().then(() => {
+        setTotalLocations(book.locations.total);
+        
+        // Save locations to localStorage to avoid regenerating
+        try {
+          localStorage.setItem(`${file.name}-locations`, JSON.stringify(book.locations.save()));
+        } catch (error) {
+          console.error('Error saving locations:', error);
+        }
+      });
+    });
+
     // Create rendition
     const rendition = book.renderTo(viewerRef.current, {
       width: '100%',
@@ -88,21 +110,29 @@ const EpubReader = ({ file }) => {
         setupIframe(iframe);
       }
 
-      // Set up location change handler
+      // Update location handler to use generated locations
       rendition.on('locationChanged', (location) => {
-        const currentPage = book.locations.percentageFromCfi(location.start.cfi);
-        setCurrentLocation(currentPage || 0);
+        const currentLoc = book.locations.currentLocation();
+        const percentage = (currentLoc / book.locations.total) * 100;
+        setCurrentLocation(percentage || 0);
       });
 
       // Set up text selection handler
       rendition.on('selected', (cfiRange, contents) => {
         const selection = contents.window.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+        
         const range = selection.getRangeAt(0);
         const rect = range.getBoundingClientRect();
-
+        
+        // Get iframe position to adjust coordinates
+        const iframe = contents.document.defaultView.frameElement;
+        const iframeRect = iframe.getBoundingClientRect();
+        
+        // Calculate absolute position considering iframe offset
         const position = {
-          x: rect.left + (rect.width / 2),
-          y: rect.bottom + 10
+          x: rect.right + iframeRect.left,
+          y: rect.bottom + iframeRect.top + 5
         };
 
         // Create selection info first
@@ -170,14 +200,39 @@ const EpubReader = ({ file }) => {
   useEffect(() => {
     if (!rendition) return;
 
-    // Apply font size as a percentage scale
-    rendition.themes.fontSize(`${settings.fontSize}%`);
+    const textColor = getContrastColor(settings.bgColor);
 
-    // Apply other styles
+    // Apply font size as a percentage scale and dynamic text color
     rendition.themes.default({
       body: {
         'font-family': settings.fontFamily,
-        'background-color': settings.bgColor
+        'background-color': settings.bgColor,
+        color: textColor,
+        'font-size': `${settings.fontSize}%`
+      },
+      p: {
+        color: textColor
+      },
+      span: {
+        color: textColor
+      },
+      h1: {
+        color: textColor
+      },
+      h2: {
+        color: textColor
+      },
+      h3: {
+        color: textColor
+      },
+      h4: {
+        color: textColor
+      },
+      h5: {
+        color: textColor
+      },
+      h6: {
+        color: textColor
       }
     });
 
@@ -226,11 +281,12 @@ const EpubReader = ({ file }) => {
   const handlePrevPage = () => rendition?.prev();
   const handleNextPage = () => rendition?.next();
 
-  // Add keyboard navigation
+  // Update the keyboard navigation useEffect
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (!rendition) return;
       
+      // Navigation shortcuts
       if (e.key === 'ArrowLeft') {
         e.preventDefault();
         rendition.prev();
@@ -239,11 +295,27 @@ const EpubReader = ({ file }) => {
         e.preventDefault();
         rendition.next();
       }
+
+      // Highlight shortcut (Ctrl + H)
+      if (e.ctrlKey && e.key === 'h') {
+        e.preventDefault();
+        if (selectedRange) {
+          handleHighlight();
+        }
+      }
+
+      // Comment shortcut (Ctrl + J)
+      if (e.ctrlKey && e.key === 'j') {
+        e.preventDefault();
+        if (selectedRange) {
+          handleComment();
+        }
+      }
     };
 
     document.addEventListener('keyup', handleKeyPress);
     return () => document.removeEventListener('keyup', handleKeyPress);
-  }, [rendition]);
+  }, [rendition, selectedRange]); // Add selectedRange to dependencies
 
   const handleSettingsChange = (newSettings) => {
     // Convert fontSize to number if it's coming as a string
@@ -311,27 +383,32 @@ const EpubReader = ({ file }) => {
       cfiRange: selectedRange.cfiRange,
       text: commentText,
       content: selectedRange.text,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      isNew: true
     };
 
     try {
-      // Update comments
-      const updatedComments = [...comments, newComment];
-      setComments(updatedComments);
-      localStorage.setItem('epub-comments', JSON.stringify(updatedComments));
-
-      // Clear everything
+      // First, close the comment input
+      setShowCommentInput(false);
+      setCommentText('');
+      
+      // Clear the selection
       if (selectedRange?.contents?.window) {
         selectedRange.contents.window.getSelection().removeAllRanges();
       }
-      
-      setShowCommentInput(false);
-      setCommentText('');
       setSelectedRange(null);
       setSelectionPopup({ show: false, x: 0, y: 0 });
 
-      // Open hamburger menu
+      // Then update comments and open sidebar
       setShowCommentsSidebar(true);
+      
+      // Add slight delay to ensure sidebar is open before comment slides in
+      setTimeout(() => {
+        const updatedComments = [...comments, newComment];
+        setComments(updatedComments);
+        localStorage.setItem('epub-comments', JSON.stringify(updatedComments));
+      }, 300);
+
     } catch (error) {
       console.error('Error saving comment:', error);
     }
@@ -418,16 +495,12 @@ const EpubReader = ({ file }) => {
           >
             <FiMenu />
           </button>
-          <button
-            className="button"
-            title="Highlight text by selecting it"
-            style={{ color: getContrastColor(settings.bgColor) }}
-          >
-            <FaHighlighter />
-          </button>
         </div>
         <div className="page-info" style={{ color: getContrastColor(settings.bgColor) }}>
-          {currentLocation ? `${Math.floor(currentLocation * 100)}%` : '0%'}
+          {isGeneratingLocations ? 
+            'Calculating...' : 
+            `${Math.round(currentLocation)}%`
+          }
         </div>
         <button className="button" 
           onClick={() => setIsSettingsOpen(true)}
@@ -476,7 +549,19 @@ const EpubReader = ({ file }) => {
           ) : (
             <div className="comments-list">
               {comments.map(comment => (
-                <div key={comment.id} className="comment-item">
+                <div 
+                  key={comment.id} 
+                  className={`comment-item ${comment.isNew ? 'new-comment' : ''}`}
+                  onAnimationEnd={() => {
+                    // Remove the isNew flag after animation
+                    if (comment.isNew) {
+                      const updatedComments = comments.map(c => 
+                        c.id === comment.id ? { ...c, isNew: false } : c
+                      );
+                      setComments(updatedComments);
+                    }
+                  }}
+                >
                   <div className="comment-content">
                     <p className="selected-text">"{comment.content}"</p>
                     <p className="comment-text">{comment.text}</p>
@@ -515,13 +600,21 @@ const EpubReader = ({ file }) => {
             position: 'fixed',
             left: `${selectionPopup.x}px`,
             top: `${selectionPopup.y}px`,
-            transform: 'translate(-50%, 0)'
+            transform: 'translate(-100%, 0)'
           }}
         >
-          <button onClick={handleHighlight} className="popup-button" title="Highlight">
+          <button 
+            onClick={handleHighlight} 
+            className="popup-button" 
+            title="Highlight (Ctrl + H)"
+          >
             <FaHighlighter />
           </button>
-          <button onClick={handleComment} className="popup-button" title="Comment">
+          <button 
+            onClick={handleComment} 
+            className="popup-button" 
+            title="Comment (Ctrl + J)"
+          >
             <FaComment />
           </button>
         </div>

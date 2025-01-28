@@ -28,7 +28,7 @@
   width: 100%;
   height: 100%;
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   transition: background-color 0.3s ease;
   position: relative;
   z-index: 1;
@@ -39,9 +39,12 @@
 .viewer {
   width: 50%;
   height: 100%;
-  box-shadow: -2px 0 4px rgba(0, 0, 0, 0.1);
+  margin-right: 15%;
+  margin-left: 5%;
   background-color: inherit;
-  padding: 2rem 0; /* Add vertical padding to the viewer */
+  padding: 2rem 0;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
 }
 
 /* Update iframe styles */
@@ -51,6 +54,7 @@
   margin-right: 0 !important;
   background-color: inherit;
   border: none;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.02);
 }
 
 /* Update navigation buttons to be more visible on any background */
@@ -399,6 +403,7 @@
   padding: 1rem;
   overflow-y: auto;
   z-index: 1000;
+  animation: slideSidebar 0.3s ease-out;
 }
 
 .comments-header {
@@ -416,6 +421,7 @@
   padding: 1rem;
   margin-bottom: 1rem;
   position: relative;
+  animation: slideInComment 0.5s ease-out;
 }
 
 .selected-text {
@@ -701,9 +707,11 @@
   padding: 0.5rem;
   display: flex;
   gap: 0.5rem;
-  z-index: 1000;
+  z-index: 9999;
+  position: fixed;
   will-change: transform;
   transform: translateZ(0);
+  pointer-events: auto;
 }
 
 .popup-button {
@@ -793,4 +801,30 @@
 
 .epub-container mark[data-epubjs-annotation="comment"]:hover {
   background-color: rgba(255, 213, 79, 0.3);
+}
+
+/* Add animation keyframes */
+@keyframes slideInComment {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideSidebar {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* Add class for new comments */
+.comment-item.new-comment {
+  animation: slideInComment 0.5s ease-out;
 } 
