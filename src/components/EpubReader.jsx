@@ -5,6 +5,7 @@ import ePub from 'epubjs';
 import Settings from './Settings';
 import './EpubReader.css';
 import { debounce } from 'lodash';
+import SpeechControls from './SpeechControls';
 
 const getContrastColor = (hexcolor) => {
   // If no color provided, return black
@@ -43,6 +44,8 @@ const EpubReader = ({ file }) => {
   const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
   const [showCommentsSidebar, setShowCommentsSidebar] = useState(false);
   const [isGeneratingLocations, setIsGeneratingLocations] = useState(false);
+  const [currentText, setCurrentText] = useState('');
+  const [isReading, setIsReading] = useState(false);
 
   // Move this before the useEffect
   const debouncedSetPopup = useCallback(
@@ -194,6 +197,10 @@ const EpubReader = ({ file }) => {
       if (iframe) {
         setupIframe(iframe);
       }
+
+      // Get the text content of the current section
+      const textContent = section.document.body.textContent;
+      setCurrentText(textContent);
     });
   }, [rendition]);
 
@@ -481,6 +488,27 @@ const EpubReader = ({ file }) => {
     }
   }, []);
 
+  useEffect(() => {
+    if (rendition) {
+      rendition.on('rendered', (section) => {
+        // Get the text content of the current page/section
+        const textContent = section.document.querySelector('.epub-view').textContent;
+        setCurrentText(textContent);
+      });
+
+      // Handle page changes
+      rendition.on('relocated', (location) => {
+        // Get the text content of the new page
+        const textContent = rendition.getContents()[0].content.querySelector('.epub-view').textContent;
+        setCurrentText(textContent);
+      });
+    }
+  }, [file]);
+
+  const handleSpeechStateChange = (isPlaying) => {
+    setIsReading(isPlaying);
+  };
+
   return (
     <div className="reader-container" style={{ backgroundColor: settings.bgColor }}>
       <div className="top-bar" style={{ 
@@ -647,6 +675,12 @@ const EpubReader = ({ file }) => {
           </div>
         </div>
       )}
+
+      <SpeechControls 
+        text={currentText} 
+        onStateChange={handleSpeechStateChange}
+        isPlaying={isReading}
+      />
     </div>
   );
 };
